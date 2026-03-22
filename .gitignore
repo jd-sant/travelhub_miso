@@ -1,3 +1,35 @@
+# ============================================================
+# Node / Nuxt (frontend)
+# ============================================================
+node_modules/
+.nuxt/
+.output/
+dist/
+.cache/
+*.local
+
+# ============================================================
+# Android / Mobile
+# ============================================================
+mobile/.gradle/
+mobile/local.properties
+mobile/app/build/
+mobile/build/
+mobile/**/*.iml
+mobile/.idea/
+mobile/captures/
+mobile/keystore/
+
+# ============================================================
+# Docker / environment
+# ============================================================
+.env
+.env.*
+!.env.example
+
+# ============================================================
+# Python / FastAPI
+# ============================================================
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
