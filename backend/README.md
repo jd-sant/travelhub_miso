@@ -1,32 +1,40 @@
-# Backend – Microservices (Python / FastAPI)
+# Backend (Python / FastAPI)
 
 ## Overview
 
-This module contains all **backend microservices** for TravelHub, each built with **Python** and **FastAPI**.
+This module contains the backend API for TravelHub built with **Python** and **FastAPI**.
 
-## Services
+## Active API modules
 
-| Service | Port | Responsibility |
-|---------|------|----------------|
-| [auth-service](services/auth-service/) | 8001 | Authentication & JWT token management |
-| [trips-service](services/trips-service/) | 8002 | Trip creation, listing, and management |
-| [users-service](services/users-service/) | 8003 | User profiles |
+| Module | Responsibility |
+|--------|----------------|
+| [app/api/v1/endpoints/users.py](app/api/v1/endpoints/users.py) | User profile endpoints |
 
-## Common conventions across all services
+## Common conventions
 
 - **FastAPI** as the web framework
 - **Pydantic v2** for request / response schema validation
 - **SQLAlchemy + Alembic** for database access and migrations (PostgreSQL on AWS RDS)
-- **Docker** containerisation — each service ships its own `Dockerfile`
+- **Docker** containerisation
 - **pytest** for unit and integration tests
 - **CORS** configured to allow requests from the Nuxt frontend
 
-## Planned folder structure
+## Current folder structure
 
 ```
 backend/
+├── app/
+│   ├── api/v1/
+│   ├── core/
+│   ├── db/
+│   ├── models/
+│   ├── repositories/
+│   ├── schemas/
+│   └── services/
+├── tests/
+├── main.py
+├── requirements.txt
 └── services/
     ├── auth-service/
-    ├── trips-service/
-    └── users-service/
+    └── trips-service/
 ```
