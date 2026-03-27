@@ -68,7 +68,7 @@ def test_create_user_hashes_password_and_returns_public_fields(client, users_mod
     assert body["telefono"] == payload["telefono"]
     assert body["estado"] == payload["estado"]
     assert "id_usuario" in body
-    assert "contrasena" in body
+    assert "contrasena" not in body
 
     with users_module.Session(users_module.engine) as session:
         stored_user = session.exec(
