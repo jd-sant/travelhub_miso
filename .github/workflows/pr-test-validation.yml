@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - develop
+      - release
       - main
     types:
       - opened
@@ -12,10 +13,11 @@ on:
       - ready_for_review
 
 jobs:
-  validate:
+  validate-tests:
     if: >-
       (github.base_ref == 'develop' && startsWith(github.head_ref, 'feature/')) ||
-      (github.base_ref == 'main' && github.head_ref == 'develop')
+      (github.base_ref == 'release' && github.head_ref == 'develop') ||
+      (github.base_ref == 'main' && github.head_ref == 'release')
     runs-on: ubuntu-latest
 
     steps:
