@@ -14,7 +14,11 @@ on:
 
 jobs:
   validate-tests:
+    concurrency:
+      group: pr-tests-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     if: >-
+      github.event.action == 'synchronize' ||
       (github.base_ref == 'develop' && startsWith(github.head_ref, 'feature/')) ||
       (github.base_ref == 'release' && github.head_ref == 'develop') ||
       (github.base_ref == 'main' && github.head_ref == 'release')
