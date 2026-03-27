@@ -5,6 +5,8 @@ from secrets import token_bytes
 
 PBKDF2_ALGORITHM = "sha256"
 PBKDF2_ITERATIONS = 390000
+PBKDF2_MIN_ITERATIONS = 100000
+PBKDF2_MAX_ITERATIONS = 1000000
 SALT_SIZE = 16
 
 
@@ -28,6 +30,9 @@ def verify_password(password: str, encoded_hash: str) -> bool:
             return False
 
         iterations = int(iterations_str)
+        if not PBKDF2_MIN_ITERATIONS <= iterations <= PBKDF2_MAX_ITERATIONS:
+            return False
+
         salt = urlsafe_b64decode(salt_b64.encode("utf-8"))
         expected_hash = urlsafe_b64decode(hash_b64.encode("utf-8"))
     except (ValueError, TypeError):

@@ -4,15 +4,15 @@ Este repositorio contiene la API de TravelHub construida con Python y FastAPI.
 
 ## Resumen
 
-El proyecto expone endpoints REST para la gestion de usuarios y esta organizado por capas:
+El proyecto expone endpoints REST para la gestión de usuarios y está organizado por capas:
 
 - API: rutas y endpoints HTTP
-- Core: configuracion y seguridad
-- DB: conexion y sesion de base de datos
+- Core: configuración y seguridad
+- DB: conexión y sesión de base de datos
 - Models: entidades persistidas
 - Schemas: contratos de entrada y salida
 - Repositories: acceso a datos
-- Services: logica de negocio
+- Services: lógica de negocio
 
 ## Stack
 
@@ -45,11 +45,11 @@ travelhub_miso/
 
 ## Endpoints disponibles
 
-- GET /: verificacion basica del servicio
+- GET /: verificación básica del servicio
 - POST /api/v1/users: crea un usuario
 - GET /api/v1/users: lista usuarios
 
-## Ejecucion local
+## Ejecución local
 
 1. Crear y activar entorno virtual.
 2. Instalar dependencias:
@@ -72,6 +72,6 @@ La API queda disponible en http://127.0.0.1:8000.
 pytest -q
 ```
 
-Las pruebas de usuarios estan en tests/test_users_api.py.
+Las pruebas de usuarios están en tests/test_users_api.py.
 
 

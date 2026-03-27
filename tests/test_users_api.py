@@ -1,58 +1,53 @@
-import importlib.util
-import os
-import sys
 from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlmodel import SQLModel, Session, create_engine, select
 
 from app.core.security import verify_password
+from app.api.v1.router import api_router
+from app.db.session import get_session
+from app.models.user import User
+from app.repositories.user_repository import UserConflictError
 
 
-def _load_users_service_module(db_url: str):
-    os.environ["DATABASE_URL"] = db_url
-    service_path = Path(__file__).resolve().parents[1] / "main.py"
-    service_dir = str(service_path.parent)
-    if service_dir not in sys.path:
-        sys.path.append(service_dir)
-
-    spec = importlib.util.spec_from_file_location("users_service_test_module", service_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("No se pudo cargar el modulo main del backend")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _build_client(module):
+def _build_client(test_engine):
     app = FastAPI()
-    app.include_router(module.router, prefix="/api/v1")
-    module.create_db_and_tables()
-    return TestClient(app)
+    app.include_router(api_router, prefix="/api/v1")
+
+    def override_get_session():
+        with Session(test_engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_get_session
+    return app
 
 
 @pytest.fixture(scope="module")
-def users_module(tmp_path_factory):
+def test_engine(tmp_path_factory):
     db_file = tmp_path_factory.mktemp("users_service") / "users_test.db"
-    module = _load_users_service_module(f"sqlite:///{db_file}")
-    module.create_db_and_tables()
-    return module
+    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    return engine
 
 
 @pytest.fixture
-def client(users_module):
-    with users_module.Session(users_module.engine) as session:
-        existing_users = session.exec(users_module.select(users_module.User)).all()
+def client(test_engine):
+    with Session(test_engine) as session:
+        existing_users = session.exec(select(User)).all()
         for user in existing_users:
             session.delete(user)
         session.commit()
 
-    return _build_client(users_module)
+    app = _build_client(test_engine)
+    with TestClient(app) as test_client:
+        yield test_client
+
+    app.dependency_overrides.clear()
 
 
-def test_create_user_hashes_password_and_returns_public_fields(client, users_module):
+def test_create_user_hashes_password_and_returns_public_fields(client, test_engine):
     payload = {
         "correo_electronico": "ana@example.com",
         "telefono": "3001234567",
@@ -70,11 +65,9 @@ def test_create_user_hashes_password_and_returns_public_fields(client, users_mod
     assert "id_usuario" in body
     assert "contrasena" not in body
 
-    with users_module.Session(users_module.engine) as session:
+    with Session(test_engine) as session:
         stored_user = session.exec(
-            users_module.select(users_module.User).where(
-                users_module.User.correo_electronico == payload["correo_electronico"]
-            )
+            select(User).where(User.correo_electronico == payload["correo_electronico"])
         ).first()
 
     assert stored_user is not None
@@ -108,3 +101,24 @@ def test_get_users_returns_created_users(client):
     emails = {item["correo_electronico"] for item in users}
     assert emails == {"uno@example.com", "dos@example.com"}
     assert all("contrasena" not in item for item in users)
+
+
+def test_create_user_returns_409_on_commit_conflict(client, monkeypatch):
+    from app import services as services_pkg
+
+    def _raise_conflict(_session, _payload):
+        raise UserConflictError("simulated race conflict")
+
+    monkeypatch.setattr(services_pkg.user_service, "create_user_record", _raise_conflict)
+
+    payload = {
+        "correo_electronico": "race@example.com",
+        "telefono": "3001239999",
+        "contrasena": "miPasswordSegura123",
+        "estado": 1,
+    }
+
+    response = client.post("/api/v1/users", json=payload)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "El correo_electronico ya existe"}

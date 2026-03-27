@@ -1,8 +1,13 @@
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from app.core.security import hash_password
 from app.models.user import User
 from app.schemas.user import UserCreate
+
+
+class UserConflictError(Exception):
+    pass
 
 
 def get_user_by_email(session: Session, correo_electronico: str) -> User | None:
@@ -17,7 +22,11 @@ def create_user_record(session: Session, payload: UserCreate) -> User:
         estado=payload.estado,
     )
     session.add(user)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as exc:
+        session.rollback()
+        raise UserConflictError("Conflict while creating user") from exc
     session.refresh(user)
     return user
 
