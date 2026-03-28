@@ -37,7 +37,7 @@ class SQLModelOtpRepository(OtpRepositoryPort):
         model = self.session.exec(
             select(OtpCode)
             .where(OtpCode.email == email)
-            .where(OtpCode.is_used == False)  # noqa: E712
+            .where(OtpCode.is_used is False)
             .where(OtpCode.expires_at > now)
             .order_by(OtpCode.created_at.desc())
         ).first()
@@ -64,7 +64,7 @@ class SQLModelOtpRepository(OtpRepositoryPort):
         self.session.execute(
             update(OtpCode)
             .where(OtpCode.email == email)
-            .where(OtpCode.is_used == False)  # noqa: E712
+            .where(OtpCode.is_used is False)
             .values(is_used=True)
         )
         self.session.commit()
