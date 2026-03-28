@@ -12,10 +12,10 @@ from errors import UserConflictError
 
 def _to_response(model: User) -> UserResponse:
     return UserResponse(
-        id_usuario=model.id_usuario,
-        correo_electronico=model.correo_electronico,
-        telefono=model.telefono,
-        estado=model.estado,
+        id=model.id,
+        email=model.email,
+        phone=model.phone,
+        status=model.status,
     )
 
 
@@ -25,10 +25,10 @@ class SQLModelUserRepository(UserRepository):
 
     def add(self, payload: UserCreateRequest) -> UserResponse:
         user = User(
-            correo_electronico=str(payload.correo_electronico),
-            telefono=payload.telefono,
-            contrasena=hash_password(payload.contrasena),
-            estado=payload.estado,
+            email=str(payload.email),
+            phone=payload.phone,
+            password=hash_password(payload.password),
+            status=payload.status,
         )
         self.session.add(user)
         try:
@@ -41,7 +41,7 @@ class SQLModelUserRepository(UserRepository):
 
     def get_by_email(self, email: str) -> Optional[UserResponse]:
         model = self.session.exec(
-            select(User).where(User.correo_electronico == email)
+            select(User).where(User.email == email)
         ).first()
         return _to_response(model) if model else None
 
