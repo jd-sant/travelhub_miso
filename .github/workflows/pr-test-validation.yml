@@ -25,17 +25,23 @@ jobs:
               core.setFailed("La descripcion del PR es obligatoria y no puede estar vacia.");
             }
 
-  validate-tests:
-    concurrency:
-      group: pr-tests-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
-    if: >-
-      github.event.action == 'synchronize' ||
-      (github.base_ref == 'develop' && startsWith(github.head_ref, 'feature/')) ||
-      (github.base_ref == 'release' && github.head_ref == 'develop') ||
-      (github.base_ref == 'main' && github.head_ref == 'release')
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      users: ${{ steps.filter.outputs.users }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            users:
+              - 'services/users/**'
 
+  test-users:
+    needs: [validate-pr-description, detect-changes]
+    if: needs.detect-changes.outputs.users == 'true'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,9 +52,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r services/users/requirements.txt
 
-      - name: Run tests
-        run: pytest -q
+      - name: Run users tests
+        run: PYTHONPATH=services/users/src pytest services/users/tests/ -v

@@ -1,0 +1,39 @@
+services:
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: travelhub
+      POSTGRES_USER: travelhub_user
+      POSTGRES_PASSWORD: travelhub_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travelhub_user -d travelhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  users:
+    build:
+      context: ./services/users
+    environment:
+      PYTHONPATH: /app/src
+      RDS_HOSTNAME: postgres
+      RDS_USERNAME: travelhub_user
+      RDS_PASSWORD: travelhub_pass
+      RDS_DB_NAME: travelhub
+      RDS_PORT: "5432"
+      DB_SCHEMA: users_schema
+      DB_ECHO: "False"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
