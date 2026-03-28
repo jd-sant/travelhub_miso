@@ -1,47 +1,7 @@
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-from sqlmodel import SQLModel, Session, create_engine, select
+from sqlmodel import Session, select
 
-from core.security import verify_password
-from db.session import get_session
 from adapters.models.user import User
-from entrypoints.api.routers.users import router as users_router
-
-
-def _build_app(test_engine):
-    app = FastAPI()
-    app.include_router(users_router, prefix="/api/v1")
-
-    def override_get_session():
-        with Session(test_engine) as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_get_session
-    return app
-
-
-@pytest.fixture(scope="module")
-def test_engine(tmp_path_factory):
-    db_file = tmp_path_factory.mktemp("users_service") / "users_test.db"
-    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(engine)
-    return engine
-
-
-@pytest.fixture
-def client(test_engine):
-    with Session(test_engine) as session:
-        existing_users = session.exec(select(User)).all()
-        for user in existing_users:
-            session.delete(user)
-        session.commit()
-
-    app = _build_app(test_engine)
-    with TestClient(app) as test_client:
-        yield test_client
-
-    app.dependency_overrides.clear()
+from core.security import verify_password
 
 
 def test_create_user_hashes_password_and_returns_public_fields(client, test_engine):

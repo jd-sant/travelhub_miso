@@ -15,3 +15,23 @@ class UserResponse(BaseModel):
     email: str
     phone: str
     status: int
+
+
+class UserCredentialsData(BaseModel):
+    id: UUID
+    email: str
+    password: str
+    status: int
+    roles: list[str]
+
+
+class VerifyCredentialsRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1)
+
+
+class VerifyCredentialsResponse(BaseModel):
+    id: UUID
+    email: str
+    status: int
+    roles: list[str]

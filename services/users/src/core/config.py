@@ -41,6 +41,10 @@ class Settings:
     def db_echo(self) -> bool:
         return os.getenv("DB_ECHO", "False").lower() == "true"
 
+    @property
+    def internal_api_key(self) -> str:
+        return os.getenv("INTERNAL_API_KEY", "dev-internal-key-change-me")
+
 
 @lru_cache
 def get_settings() -> Settings:
