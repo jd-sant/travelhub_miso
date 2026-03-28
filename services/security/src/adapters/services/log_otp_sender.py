@@ -7,4 +7,4 @@ logger = logging.getLogger(__name__)
 
 class LogOtpSender(OtpSender):
     def send(self, email: str, code: str) -> None:
-        logger.debug("[OTP] %s: %s", email, code)
+        logger.info("[OTP] %s: %s", email, code)

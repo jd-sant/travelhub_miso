@@ -35,7 +35,7 @@ class SQLModelLoginAttemptRepository(LoginAttemptRepositoryPort):
             select(func.count())
             .select_from(LoginAttempt)
             .where(LoginAttempt.ip_address == ip)
-            .where(LoginAttempt.success is False)
+            .where(LoginAttempt.success == False)  # noqa: E712
             .where(LoginAttempt.created_at >= since)
         ).one()
         return result
