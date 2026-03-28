@@ -46,45 +46,45 @@ def client(test_engine):
 
 def test_create_user_hashes_password_and_returns_public_fields(client, test_engine):
     payload = {
-        "correo_electronico": "ana@example.com",
-        "telefono": "3001234567",
-        "contrasena": "miPasswordSegura123",
-        "estado": 1,
+        "email": "ana@example.com",
+        "phone": "3001234567",
+        "password": "miPasswordSegura123",
+        "status": 1,
     }
 
     response = client.post("/api/v1/users", json=payload)
 
     assert response.status_code == 201
     body = response.json()
-    assert body["correo_electronico"] == payload["correo_electronico"]
-    assert body["telefono"] == payload["telefono"]
-    assert body["estado"] == payload["estado"]
-    assert "id_usuario" in body
-    assert "contrasena" not in body
+    assert body["email"] == payload["email"]
+    assert body["phone"] == payload["phone"]
+    assert body["status"] == payload["status"]
+    assert "id" in body
+    assert "password" not in body
 
     with Session(test_engine) as session:
         stored_user = session.exec(
-            select(User).where(User.correo_electronico == payload["correo_electronico"])
+            select(User).where(User.email == payload["email"])
         ).first()
 
     assert stored_user is not None
-    assert stored_user.contrasena != payload["contrasena"]
-    assert stored_user.contrasena.startswith("pbkdf2_sha256$")
-    assert verify_password(payload["contrasena"], stored_user.contrasena)
+    assert stored_user.password != payload["password"]
+    assert stored_user.password.startswith("pbkdf2_sha256$")
+    assert verify_password(payload["password"], stored_user.password)
 
 
 def test_get_users_returns_created_users(client):
     user_1 = {
-        "correo_electronico": "uno@example.com",
-        "telefono": "3000000001",
-        "contrasena": "passwordSegura1",
-        "estado": 1,
+        "email": "uno@example.com",
+        "phone": "3000000001",
+        "password": "passwordSegura1",
+        "status": 1,
     }
     user_2 = {
-        "correo_electronico": "dos@example.com",
-        "telefono": "3000000002",
-        "contrasena": "passwordSegura2",
-        "estado": 0,
+        "email": "dos@example.com",
+        "phone": "3000000002",
+        "password": "passwordSegura2",
+        "status": 0,
     }
 
     assert client.post("/api/v1/users", json=user_1).status_code == 201
@@ -95,17 +95,17 @@ def test_get_users_returns_created_users(client):
     assert response.status_code == 200
     users = response.json()
     assert len(users) == 2
-    emails = {item["correo_electronico"] for item in users}
+    emails = {item["email"] for item in users}
     assert emails == {"uno@example.com", "dos@example.com"}
-    assert all("contrasena" not in item for item in users)
+    assert all("password" not in item for item in users)
 
 
 def test_create_user_returns_409_on_duplicate_email(client):
     payload = {
-        "correo_electronico": "dup@example.com",
-        "telefono": "3001239999",
-        "contrasena": "miPasswordSegura123",
-        "estado": 1,
+        "email": "dup@example.com",
+        "phone": "3001239999",
+        "password": "miPasswordSegura123",
+        "status": 1,
     }
 
     response1 = client.post("/api/v1/users", json=payload)
@@ -113,4 +113,4 @@ def test_create_user_returns_409_on_duplicate_email(client):
 
     response2 = client.post("/api/v1/users", json=payload)
     assert response2.status_code == 409
-    assert response2.json() == {"detail": "El correo_electronico ya existe"}
+    assert response2.json() == {"detail": "El correo electrónico ya existe"}

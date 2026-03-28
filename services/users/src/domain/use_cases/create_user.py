@@ -9,8 +9,8 @@ class CreateUserUseCase(BaseUseCase[UserCreateRequest, UserResponse]):
         self.repository = repository
 
     def execute(self, payload: UserCreateRequest) -> UserResponse:
-        existing = self.repository.get_by_email(str(payload.correo_electronico))
+        existing = self.repository.get_by_email(str(payload.email))
         if existing is not None:
-            raise UserConflictError("El correo_electronico ya existe")
+            raise UserConflictError("El correo electrónico ya existe")
 
         return self.repository.add(payload)

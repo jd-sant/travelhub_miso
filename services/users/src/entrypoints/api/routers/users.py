@@ -19,7 +19,7 @@ def create_user(
     except UserConflictError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="El correo_electronico ya existe",
+            detail="El correo electrónico ya existe",
         )
 
 
