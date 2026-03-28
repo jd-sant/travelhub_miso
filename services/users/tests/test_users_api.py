@@ -1,20 +1,17 @@
-from pathlib import Path
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine, select
 
-from app.core.security import verify_password
-from app.api.v1.router import api_router
-from app.db.session import get_session
-from app.models.user import User
-from app.repositories.user_repository import UserConflictError
+from core.security import verify_password
+from db.session import get_session
+from adapters.models.user import User
+from entrypoints.api.routers.users import router as users_router
 
 
-def _build_client(test_engine):
+def _build_app(test_engine):
     app = FastAPI()
-    app.include_router(api_router, prefix="/api/v1")
+    app.include_router(users_router, prefix="/api/v1")
 
     def override_get_session():
         with Session(test_engine) as session:
@@ -40,7 +37,7 @@ def client(test_engine):
             session.delete(user)
         session.commit()
 
-    app = _build_client(test_engine)
+    app = _build_app(test_engine)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -103,22 +100,17 @@ def test_get_users_returns_created_users(client):
     assert all("contrasena" not in item for item in users)
 
 
-def test_create_user_returns_409_on_commit_conflict(client, monkeypatch):
-    from app import services as services_pkg
-
-    def _raise_conflict(_session, _payload):
-        raise UserConflictError("simulated race conflict")
-
-    monkeypatch.setattr(services_pkg.user_service, "create_user_record", _raise_conflict)
-
+def test_create_user_returns_409_on_duplicate_email(client):
     payload = {
-        "correo_electronico": "race@example.com",
+        "correo_electronico": "dup@example.com",
         "telefono": "3001239999",
         "contrasena": "miPasswordSegura123",
         "estado": 1,
     }
 
-    response = client.post("/api/v1/users", json=payload)
+    response1 = client.post("/api/v1/users", json=payload)
+    assert response1.status_code == 201
 
-    assert response.status_code == 409
-    assert response.json() == {"detail": "El correo_electronico ya existe"}
+    response2 = client.post("/api/v1/users", json=payload)
+    assert response2.status_code == 409
+    assert response2.json() == {"detail": "El correo_electronico ya existe"}
