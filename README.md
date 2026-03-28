@@ -1,32 +1,77 @@
-# travelhub_miso
+# TravelHub MISO - Backend API
 
-TravelHub is the travel planning platform built for the MISO course at Universidad de los Andes.
+Este repositorio contiene la API de TravelHub construida con Python y FastAPI.
 
-## Architecture
+## Resumen
 
-TravelHub uses a **microservice architecture** split across four technology layers:
+El proyecto expone endpoints REST para la gestión de usuarios y está organizado por capas:
 
-| Layer | Technology | Location |
-|-------|-----------|----------|
-| Frontend | Nuxt 3 (Vue.js) | [`frontend/`](frontend/) |
-| Backend | Python + FastAPI | [`backend/services/`](backend/) |
-| Mobile | Android (Kotlin + Jetpack Compose) | [`mobile/`](mobile/) |
-| Infrastructure | AWS ECS / Fargate | [`infrastructure/aws/`](infrastructure/aws/) |
+- API: rutas y endpoints HTTP
+- Core: configuración y seguridad
+- DB: conexión y sesión de base de datos
+- Models: entidades persistidas
+- Schemas: contratos de entrada y salida
+- Repositories: acceso a datos
+- Services: lógica de negocio
 
-## Repository structure
+## Stack
 
-```
+- Python 3.11+
+- FastAPI
+- SQLModel
+- Pydantic v2
+- Pytest
+
+## Estructura actual
+
+```text
 travelhub_miso/
-├── frontend/                        # Nuxt 3 web application
-├── backend/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       └── endpoints/
+│   │           └── users.py
+│   ├── core/
+│   ├── db/
+│   ├── models/
+│   ├── repositories/
+│   ├── schemas/
 │   └── services/
-│       ├── auth-service/            # FastAPI – authentication & JWT
-│       ├── trips-service/           # FastAPI – trip management
-│       └── users-service/           # FastAPI – user profiles
-├── mobile/                          # Android Studio project (Kotlin + Compose)
-└── infrastructure/
-    └── aws/                         # AWS ECS task definitions & config
+├── tests/
+├── main.py
+├── requirements.txt
+└── README.md
 ```
 
-Each directory contains a `README.md` that describes what will be developed there.
+## Endpoints disponibles
+
+- GET /: verificación básica del servicio
+- POST /api/v1/users: crea un usuario
+- GET /api/v1/users: lista usuarios
+
+## Ejecución local
+
+1. Crear y activar entorno virtual.
+2. Instalar dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Levantar la API:
+
+```bash
+uvicorn app.main:app --reload
+```
+
+La API queda disponible en http://127.0.0.1:8000.
+
+## Pruebas
+
+```bash
+pytest -q
+```
+
+Las pruebas de usuarios están en tests/test_users_api.py.
+
 
