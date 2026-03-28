@@ -1,18 +1,17 @@
 from uuid import UUID
 
-from pydantic import EmailStr
-from sqlmodel import Field, SQLModel
+from pydantic import BaseModel, EmailStr, Field
 
 
-class UserBase(SQLModel):
+class UserCreateRequest(BaseModel):
     correo_electronico: EmailStr
     telefono: str = Field(min_length=7, max_length=20)
+    contrasena: str = Field(min_length=8)
     estado: int = Field(default=1, ge=0, le=1)
 
 
-class UserCreate(UserBase):
-    contrasena: str = Field(min_length=8)
-
-
-class UserPublic(UserBase):
+class UserResponse(BaseModel):
     id_usuario: UUID
+    correo_electronico: str
+    telefono: str
+    estado: int

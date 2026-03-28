@@ -7,7 +7,6 @@ from core.security import verify_password
 from db.session import get_session
 from adapters.models.user import User
 from entrypoints.api.routers.users import router as users_router
-from errors import UserConflictError
 
 
 def _build_app(test_engine):
