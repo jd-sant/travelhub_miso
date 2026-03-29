@@ -29,7 +29,7 @@ phases:
       - echo Pushing Docker image...
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/travelhub-security:latest
       - echo Writing Image Definitions file...
-      - printf '[{"name":"travelhub-security","imageUri":"%s.dkr.ecr.us-east-1.amazonaws.com/travelhub-security:latest"}]' $AWS_ACCOUNT_ID > imagedefinitions.json
+      - printf '[{"name":"security","imageUri":"%s.dkr.ecr.us-east-1.amazonaws.com/travelhub-security:latest"}]' $AWS_ACCOUNT_ID > imagedefinitions.json
       - printf '{"ImageURI":"%s.dkr.ecr.us-east-1.amazonaws.com/travelhub-security:latest"}' $AWS_ACCOUNT_ID > imageDetail.json
 
 artifacts:
