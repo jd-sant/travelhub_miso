@@ -1,4 +1,4 @@
-.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs
+.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs payments-test payments-build payments-logs
 
 help:
 	@echo "=== TravelHub Monorepo ==="
@@ -14,6 +14,11 @@ help:
 	@echo "  make users-test     - Run users tests"
 	@echo "  make users-build    - Build users image"
 	@echo "  make users-logs     - Tail users logs"
+	@echo ""
+	@echo "Payments service:"
+	@echo "  make payments-test  - Run payments tests"
+	@echo "  make payments-build - Build payments image"
+	@echo "  make payments-logs  - Tail payments logs"
 
 # Global commands
 docker-up:
@@ -41,3 +46,12 @@ users-build:
 
 users-logs:
 	docker compose logs -f users
+
+payments-test:
+	cd services/payments && PYTHONPATH=src pytest tests/ -v
+
+payments-build:
+	docker compose build payments
+
+payments-logs:
+	docker compose logs -f payments

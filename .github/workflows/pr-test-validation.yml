@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       users: ${{ steps.filter.outputs.users }}
+      payments: ${{ steps.filter.outputs.payments }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -37,6 +38,8 @@ jobs:
           filters: |
             users:
               - 'services/users/**'
+            payments:
+              - 'services/payments/**'
 
   test-users:
     needs: [validate-pr-description, detect-changes]
@@ -56,3 +59,22 @@ jobs:
 
       - name: Run users tests
         run: PYTHONPATH=services/users/src pytest services/users/tests/ -v
+
+  test-payments:
+    needs: [validate-pr-description, detect-changes]
+    if: needs.detect-changes.outputs.payments == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r services/payments/requirements.txt
+
+      - name: Run payments tests
+        run: PYTHONPATH=services/payments/src pytest services/payments/tests/ -v

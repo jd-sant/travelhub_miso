@@ -35,5 +35,27 @@ services:
       postgres:
         condition: service_healthy
 
+  payments:
+    build:
+      context: ./services/payments
+    environment:
+      PYTHONPATH: /app/src
+      RDS_HOSTNAME: postgres
+      RDS_USERNAME: travelhub_user
+      RDS_PASSWORD: travelhub_pass
+      RDS_DB_NAME: travelhub
+      RDS_PORT: "5432"
+      DB_SCHEMA: payments_schema
+      DB_ECHO: "False"
+      PAYMENT_PROVIDER: fake_stripe
+      PAYMENT_DUPLICATE_WINDOW_SECONDS: "2"
+      ENFORCE_TLS_HEADER: "False"
+      PAYMENT_INTEGRITY_SECRET: "travelhub-payments-secret"
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
