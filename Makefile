@@ -1,4 +1,4 @@
-.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs
+.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs security-test security-build security-logs
 
 help:
 	@echo "=== TravelHub Monorepo ==="
@@ -14,6 +14,11 @@ help:
 	@echo "  make users-test     - Run users tests"
 	@echo "  make users-build    - Build users image"
 	@echo "  make users-logs     - Tail users logs"
+	@echo ""
+	@echo "Security service:"
+	@echo "  make security-test  - Run security tests"
+	@echo "  make security-build - Build security image"
+	@echo "  make security-logs  - Tail security logs"
 
 # Global commands
 docker-up:
@@ -41,3 +46,13 @@ users-build:
 
 users-logs:
 	docker compose logs -f users
+
+# Security service
+security-test:
+	cd services/security && PYTHONPATH=src pytest tests/ -v
+
+security-build:
+	docker compose build security
+
+security-logs:
+	docker compose logs -f security

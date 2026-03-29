@@ -41,6 +41,18 @@ class Settings:
     def db_echo(self) -> bool:
         return os.getenv("DB_ECHO", "False").lower() == "true"
 
+    @property
+    def internal_api_key(self) -> str:
+        value = os.getenv("INTERNAL_API_KEY")
+        if value:
+            return value
+        env = os.getenv("ENV", os.getenv("APP_ENV", "development")).lower()
+        if env not in ("development", "dev", "test"):
+            raise RuntimeError(
+                "INTERNAL_API_KEY debe estar configurado en entornos de producción."
+            )
+        return "dev-internal-key-change-me"
+
 
 @lru_cache
 def get_settings() -> Settings:
