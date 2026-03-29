@@ -1,77 +1,126 @@
 # TravelHub MISO - Backend API
 
-Este repositorio contiene la API de TravelHub construida con Python y FastAPI.
+Monorepo del backend de TravelHub, organizado como microservicios independientes con Python, FastAPI y arquitectura hexagonal.
 
-## Resumen
+## Arquitectura
 
-El proyecto expone endpoints REST para la gestión de usuarios y está organizado por capas:
+El proyecto sigue una arquitectura de microservicios donde cada servicio tiene su propia base de código, Dockerfile y schema de base de datos. Todos los servicios comparten una instancia de PostgreSQL pero operan en schemas aislados.
 
-- API: rutas y endpoints HTTP
-- Core: configuración y seguridad
-- DB: conexión y sesión de base de datos
-- Models: entidades persistidas
-- Schemas: contratos de entrada y salida
-- Repositories: acceso a datos
-- Services: lógica de negocio
+```text
+travelhub_miso/
+├── services/
+│   ├── users/          # Gestión de usuarios y roles
+│   └── security/       # Autenticación, OTP y JWT
+├── docker-compose.yml  # Orquestación local
+├── init-schemas.sql    # Creación de schemas en PostgreSQL
+├── Makefile            # Comandos de desarrollo
+└── .github/workflows/  # CI/CD con GitHub Actions
+```
+
+Cada microservicio sigue arquitectura hexagonal:
+
+```text
+service/
+├── src/
+│   ├── adapters/          # Implementaciones concretas (repos, clientes HTTP)
+│   ├── core/              # Configuración y utilidades
+│   ├── db/                # Sesión y conexión a BD
+│   ├── domain/
+│   │   ├── ports/         # Interfaces abstractas
+│   │   ├── schemas/       # DTOs de entrada y salida
+│   │   └── use_cases/     # Lógica de negocio
+│   └── entrypoints/
+│       └── api/routers/   # Endpoints HTTP
+├── tests/
+├── Dockerfile
+└── requirements.txt
+```
 
 ## Stack
 
 - Python 3.11+
 - FastAPI
-- SQLModel
+- SQLModel / SQLAlchemy
 - Pydantic v2
+- PostgreSQL 15
+- Docker Compose
 - Pytest
+- GitHub Actions
 
-## Estructura actual
+## Servicios
 
-```text
-travelhub_miso/
-├── app/
-│   ├── api/
-│   │   └── v1/
-│   │       └── endpoints/
-│   │           └── users.py
-│   ├── core/
-│   ├── db/
-│   ├── models/
-│   ├── repositories/
-│   ├── schemas/
-│   └── services/
-├── tests/
-├── main.py
-├── requirements.txt
-└── README.md
-```
-
-## Endpoints disponibles
-
-- GET /: verificación básica del servicio
-- POST /api/v1/users: crea un usuario
-- GET /api/v1/users: lista usuarios
+| Servicio | Puerto | Schema BD | Descripción |
+|----------|--------|-----------|-------------|
+| [users](services/users/README.md) | 8000 | `users_schema` | Gestión de usuarios y roles |
+| [security](services/security/README.md) | 8001 | `security_schema` | Autenticación, OTP y tokens JWT |
 
 ## Ejecución local
 
-1. Crear y activar entorno virtual.
-2. Instalar dependencias:
+### Requisitos previos
+
+- Docker y Docker Compose
+- Python 3.11+ (para desarrollo y tests)
+
+### Con Docker Compose
 
 ```bash
-pip install -r requirements.txt
+# Copiar variables de entorno
+cp .env.example .env
+
+# Levantar todos los servicios
+make docker-up
+
+# Ver logs
+make docker-logs
 ```
 
-3. Levantar la API:
+Los servicios quedan disponibles en:
+- Users: http://localhost:8000
+- Security: http://localhost:8001
+
+### Tests
 
 ```bash
-uvicorn app.main:app --reload
+# Todos los servicios
+make users-test
+make security-test
+
+# O directamente con pytest
+PYTHONPATH=services/users/src pytest services/users/tests/ -v
+PYTHONPATH=services/security/src pytest services/security/tests/ -v
 ```
 
-La API queda disponible en http://127.0.0.1:8000.
-
-## Pruebas
+## Comandos disponibles
 
 ```bash
-pytest -q
+make help             # Ver todos los comandos
+make docker-up        # Levantar servicios
+make docker-down      # Detener servicios
+make docker-build     # Construir imágenes
+make clean            # Limpiar __pycache__
+make users-test       # Tests del servicio de usuarios
+make security-test    # Tests del servicio de seguridad
 ```
 
-Las pruebas de usuarios están en tests/test_users_api.py.
+## CI / CD
 
+### CI - GitHub Actions
 
+El workflow `pr-test-validation.yml` se ejecuta en cada PR hacia `develop`, `release` o `main`:
+
+1. Valida que el PR tenga descripción
+2. Detecta qué servicios tienen cambios
+3. Ejecuta los tests solo de los servicios afectados
+
+### CD - AWS CodePipeline
+
+El despliegue continuo se gestiona con AWS CodePipeline. Cada servicio tiene su propio `buildspec.yml` que define los pasos de build, test y push de la imagen Docker.
+
+## Variables de entorno
+
+Ver `.env.example` para la lista completa. Las principales:
+
+| Variable | Descripción |
+|----------|-------------|
+| `JWT_SECRET_KEY` | Clave secreta para firmar tokens JWT |
+| `INTERNAL_API_KEY` | Clave para comunicación entre servicios |
