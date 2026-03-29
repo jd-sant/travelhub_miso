@@ -28,7 +28,7 @@ def test_login_wrong_password_returns_401(client):
         json={"email": "ana@example.com", "password": "wrongPassword"},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciales invalidas"
+    assert response.json()["detail"] == "Credenciales inválidas"
 
 
 def test_login_unknown_email_returns_401(client):
@@ -37,7 +37,7 @@ def test_login_unknown_email_returns_401(client):
         json={"email": "unknown@example.com", "password": "correctPassword"},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciales invalidas"
+    assert response.json()["detail"] == "Credenciales inválidas"
 
 
 def test_login_generic_message_no_user_enumeration(client):
@@ -86,7 +86,7 @@ def test_verify_otp_wrong_code_returns_401(client, fake_otp_sender):
         json={"email": "ana@example.com", "otp_code": "000000"},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Codigo OTP invalido"
+    assert response.json()["detail"] == "Código OTP inválido"
 
 
 def test_verify_otp_three_failures_locks_account(client, fake_otp_sender):
@@ -130,7 +130,7 @@ def test_ip_blocked_after_10_failed_attempts(client):
         json={"email": "ana@example.com", "password": "correctPassword"},
     )
     assert response.status_code == 429
-    assert response.json()["detail"] == "IP bloqueada por multiples intentos fallidos"
+    assert response.json()["detail"] == "IP bloqueada por múltiples intentos fallidos"
 
 
 def test_validate_token_valid(client, fake_otp_sender):
@@ -163,4 +163,4 @@ def test_validate_token_invalid_returns_401(client):
         json={"token": "invalid.token.here"},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Token invalido"
+    assert response.json()["detail"] == "Token inválido"

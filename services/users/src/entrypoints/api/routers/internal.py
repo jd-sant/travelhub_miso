@@ -36,5 +36,5 @@ def verify_credentials(
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales invalidas",
+            detail="Credenciales inválidas",
         )

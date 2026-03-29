@@ -3,6 +3,7 @@ from hmac import compare_digest
 
 from core.config import settings
 from core.jwt_handler import create_token
+from core.otp import hash_otp
 from domain.ports.audit_repository import AuditRepository
 from domain.ports.login_attempt_repository import LoginAttemptRepository
 from domain.ports.otp_repository import OtpRepository
@@ -48,7 +49,7 @@ class VerifyOtpUseCase(BaseUseCase[OtpVerifyRequest, TokenResponse]):
         if otp is None:
             raise OtpExpiredError()
 
-        if not compare_digest(payload.otp_code, otp.code):
+        if not compare_digest(hash_otp(payload.otp_code), otp.code):
             attempts = self.otp_repo.increment_attempts(otp.id)
 
             if attempts >= settings.otp_max_attempts:

@@ -28,3 +28,7 @@ class TokenExpiredError(Exception):
 
 class InvalidTokenError(Exception):
     pass
+
+
+class ServiceUnavailableError(Exception):
+    pass

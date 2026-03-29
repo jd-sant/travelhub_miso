@@ -24,6 +24,7 @@ from errors import (
     IpBlockedError,
     OtpExpiredError,
     OtpMaxAttemptsError,
+    ServiceUnavailableError,
     TokenExpiredError,
 )
 
@@ -53,17 +54,22 @@ def login(
     except IpBlockedError:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="IP bloqueada por multiples intentos fallidos",
+            detail="IP bloqueada por múltiples intentos fallidos",
         )
     except AccountLockedError:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
             detail="Cuenta bloqueada temporalmente",
         )
+    except ServiceUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Servicio no disponible, intente más tarde",
+        )
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales invalidas",
+            detail="Credenciales inválidas",
         )
 
 
@@ -93,12 +99,12 @@ def verify_otp(
     except OtpMaxAttemptsError:
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail="Cuenta bloqueada por multiples intentos fallidos de OTP",
+            detail="Cuenta bloqueada por múltiples intentos fallidos de OTP",
         )
     except InvalidOtpError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Codigo OTP invalido",
+            detail="Código OTP inválido",
         )
 
 
@@ -121,5 +127,5 @@ def validate_token(
     except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token invalido",
+            detail="Token inválido",
         )

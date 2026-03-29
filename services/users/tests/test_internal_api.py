@@ -25,7 +25,7 @@ def test_verify_credentials_wrong_password_returns_401(client, session):
         headers={"X-Internal-Api-Key": INTERNAL_API_KEY},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciales invalidas"
+    assert response.json()["detail"] == "Credenciales inválidas"
 
 
 def test_verify_credentials_unknown_email_returns_401(client):
@@ -35,7 +35,7 @@ def test_verify_credentials_unknown_email_returns_401(client):
         headers={"X-Internal-Api-Key": INTERNAL_API_KEY},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciales invalidas"
+    assert response.json()["detail"] == "Credenciales inválidas"
 
 
 def test_verify_credentials_no_api_key_returns_403(client, session):

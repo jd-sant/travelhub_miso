@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from core.config import settings
-from core.otp import generate_otp
+from core.otp import generate_otp, hash_otp
 from domain.ports.auth_repository import AuthRepository
 from domain.ports.audit_repository import AuditRepository
 from domain.ports.login_attempt_repository import LoginAttemptRepository
@@ -75,11 +75,12 @@ class LoginUseCase(BaseUseCase[LoginRequest, LoginResponse]):
         self.otp_repo.invalidate_all(str(payload.email))
 
         code = generate_otp()
+        hashed_code = hash_otp(code)
         expires_at = now + timedelta(minutes=settings.otp_expiry_minutes)
         self.otp_repo.create(
             user_id=user.id,
             email=str(payload.email),
-            code=code,
+            code=hashed_code,
             expires_at=expires_at,
             roles=user.roles,
         )

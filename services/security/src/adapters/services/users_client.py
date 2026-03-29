@@ -5,6 +5,7 @@ import httpx
 from core.config import settings
 from domain.ports.auth_repository import AuthRepository
 from domain.schemas.auth import UserCredentials
+from errors import ServiceUnavailableError
 
 
 class UsersServiceClient(AuthRepository):
@@ -19,8 +20,10 @@ class UsersServiceClient(AuthRepository):
                 headers={"X-Internal-Api-Key": settings.internal_api_key},
                 timeout=10.0,
             )
-        except httpx.RequestError:
-            return None
+        except httpx.RequestError as exc:
+            raise ServiceUnavailableError(
+                "No se pudo conectar al servicio de usuarios"
+            ) from exc
 
         if response.status_code == 200:
             data = response.json()

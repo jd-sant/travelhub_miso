@@ -30,4 +30,4 @@ def decode_token(token: str) -> dict:
     except jwt.ExpiredSignatureError as exc:
         raise TokenExpiredError("Token expirado") from exc
     except jwt.InvalidTokenError as exc:
-        raise InvalidTokenError("Token invalido") from exc
+        raise InvalidTokenError("Token inválido") from exc

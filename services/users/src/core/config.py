@@ -43,7 +43,15 @@ class Settings:
 
     @property
     def internal_api_key(self) -> str:
-        return os.getenv("INTERNAL_API_KEY", "dev-internal-key-change-me")
+        value = os.getenv("INTERNAL_API_KEY")
+        if value:
+            return value
+        env = os.getenv("ENV", os.getenv("APP_ENV", "development")).lower()
+        if env not in ("development", "dev", "test"):
+            raise RuntimeError(
+                "INTERNAL_API_KEY debe estar configurado en entornos de producción."
+            )
+        return "dev-internal-key-change-me"
 
 
 @lru_cache
