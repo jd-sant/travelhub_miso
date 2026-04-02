@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from domain.ports.reservation_repository import ReservationRepository
 from domain.schemas.reservation import ReservationCreateRequest, ReservationResponse
@@ -37,12 +38,14 @@ class CreateReservationUseCase(BaseUseCase[ReservationCreateRequest, Reservation
         return reservation
 
     def _calculate_price_with_taxes(
-        self, id_property: str, currency: str, check_in: datetime, check_out: datetime
+        self, id_property: UUID, currency: str, check_in: datetime, check_out: datetime
     ) -> Decimal:
         """
         Calculate total price including local taxes based on country
         Supports: COP, USD, ARS, CLP, PEN, MXN
         """
+        # TODO: usar id_property para consultar la tarifa real por noche
+        # desde el servicio de propiedades cuando ese endpoint este disponible.
         # Tarifas de impuestos por país (normalmente vendrían de un servicio externo)
         tax_rates = {
             "COP": Decimal("0.19"),  # Colombia 19%

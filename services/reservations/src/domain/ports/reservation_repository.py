@@ -27,5 +27,5 @@ class ReservationRepository(ABC):
         pass
 
     @abstractmethod
-    def update_status(self, id: UUID, status: str) -> ReservationResponse:
+    def update_status(self, id: UUID, status: str) -> Optional[ReservationResponse]:
         pass

@@ -88,7 +88,7 @@ class SQLModelReservationRepository(ReservationRepository):
         ).first()
         return conflicting is None
 
-    def update_status(self, id: UUID, status: str) -> ReservationResponse:
+    def update_status(self, id: UUID, status: str) -> Optional[ReservationResponse]:
         reservation = self.session.exec(
             select(Reservation).where(Reservation.id == id)
         ).first()
