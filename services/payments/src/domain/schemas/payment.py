@@ -45,6 +45,7 @@ class PaymentChargeResponse(BaseModel):
     gateway_status: str
     idempotency_key: str
     request_fingerprint: str
+    duplicate_guard_key: str
     request_checksum: str
     payment_method_token_hash: str
     receipt_id: UUID | None = None

@@ -4,36 +4,37 @@ Monorepo del backend de TravelHub, organizado como microservicios independientes
 
 ## Arquitectura
 
-El proyecto sigue una arquitectura de microservicios donde cada servicio tiene su propia base de código, Dockerfile y schema de base de datos. Todos los servicios comparten una instancia de PostgreSQL pero operan en schemas aislados.
+El proyecto sigue una arquitectura de microservicios donde cada servicio tiene su propia base de codigo, Dockerfile y schema de base de datos. Todos los servicios comparten una instancia de PostgreSQL pero operan en schemas aislados.
 
 ```text
 travelhub_miso/
-├── services/
-│   ├── users/          # Gestión de usuarios y roles
-│   └── security/       # Autenticación, OTP y JWT
-├── docker-compose.yml  # Orquestación local
-├── init-schemas.sql    # Creación de schemas en PostgreSQL
-├── Makefile            # Comandos de desarrollo
-└── .github/workflows/  # CI/CD con GitHub Actions
+|-- services/
+|   |-- users/          # Gestion de usuarios y roles
+|   |-- security/       # Autenticacion, OTP y JWT
+|   `-- payments/       # Pagos tokenizados y recibos
+|-- docker-compose.yml  # Orquestacion local
+|-- init-schemas.sql    # Creacion de schemas en PostgreSQL
+|-- Makefile            # Comandos de desarrollo
+`-- .github/workflows/  # CI/CD con GitHub Actions
 ```
 
 Cada microservicio sigue arquitectura hexagonal:
 
 ```text
 service/
-├── src/
-│   ├── adapters/          # Implementaciones concretas (repos, clientes HTTP)
-│   ├── core/              # Configuración y utilidades
-│   ├── db/                # Sesión y conexión a BD
-│   ├── domain/
-│   │   ├── ports/         # Interfaces abstractas
-│   │   ├── schemas/       # DTOs de entrada y salida
-│   │   └── use_cases/     # Lógica de negocio
-│   └── entrypoints/
-│       └── api/routers/   # Endpoints HTTP
-├── tests/
-├── Dockerfile
-└── requirements.txt
+|-- src/
+|   |-- adapters/          # Implementaciones concretas
+|   |-- core/              # Configuracion y utilidades
+|   |-- db/                # Sesion y conexion a BD
+|   |-- domain/
+|   |   |-- ports/         # Interfaces abstractas
+|   |   |-- schemas/       # DTOs de entrada y salida
+|   |   `-- use_cases/     # Logica de negocio
+|   `-- entrypoints/
+|       `-- api/routers/   # Endpoints HTTP
+|-- tests/
+|-- Dockerfile
+`-- requirements.txt
 ```
 
 ## Stack
@@ -49,17 +50,18 @@ service/
 
 ## Servicios
 
-| Servicio | Puerto | Schema BD | Descripción |
+| Servicio | Puerto | Schema BD | Descripcion |
 |----------|--------|-----------|-------------|
-| [users](services/users/README.md) | 8000 | `users_schema` | Gestión de usuarios y roles |
-| [security](services/security/README.md) | 8001 | `security_schema` | Autenticación, OTP y tokens JWT |
+| [users](services/users/README.md) | 8000 | `users_schema` | Gestion de usuarios y roles |
+| [security](services/security/README.md) | 8001 | `security_schema` | Autenticacion, OTP y tokens JWT |
+| [payments](services/payments/README.md) | 8002 | `payments_schema` | Procesamiento seguro de pagos con token |
 
-## Ejecución local
+## Ejecucion local
 
 ### Requisitos previos
 
 - Docker y Docker Compose
-- Python 3.11+ (para desarrollo y tests)
+- Python 3.11+ para desarrollo y tests
 
 ### Con Docker Compose
 
@@ -77,29 +79,31 @@ make docker-logs
 Los servicios quedan disponibles en:
 - Users: http://localhost:8000
 - Security: http://localhost:8001
+- Payments: http://localhost:8002
 
 ### Tests
 
 ```bash
-# Todos los servicios
 make users-test
 make security-test
+make payments-test
 
-# O directamente con pytest
 PYTHONPATH=services/users/src pytest services/users/tests/ -v
 PYTHONPATH=services/security/src pytest services/security/tests/ -v
+PYTHONPATH=services/payments/src pytest services/payments/tests/ -v
 ```
 
 ## Comandos disponibles
 
 ```bash
-make help             # Ver todos los comandos
-make docker-up        # Levantar servicios
-make docker-down      # Detener servicios
-make docker-build     # Construir imágenes
-make clean            # Limpiar __pycache__
-make users-test       # Tests del servicio de usuarios
-make security-test    # Tests del servicio de seguridad
+make help
+make docker-up
+make docker-down
+make docker-build
+make clean
+make users-test
+make security-test
+make payments-test
 ```
 
 ## CI / CD
@@ -108,19 +112,20 @@ make security-test    # Tests del servicio de seguridad
 
 El workflow `pr-test-validation.yml` se ejecuta en cada PR hacia `develop`, `release` o `main`:
 
-1. Valida que el PR tenga descripción
-2. Detecta qué servicios tienen cambios
-3. Ejecuta los tests solo de los servicios afectados
+1. Valida que el PR tenga descripcion.
+2. Detecta que servicios tuvieron cambios.
+3. Ejecuta los tests solo de los servicios afectados.
 
-### CD - AWS CodePipeline
+### CD - AWS CodeBuild
 
-El despliegue continuo se gestiona con AWS CodePipeline. Cada servicio tiene su propio `buildspec.yml` que define los pasos de build, test y push de la imagen Docker.
+Cada servicio mantiene su propio `buildspec.yml` para pruebas y build de imagen.
 
 ## Variables de entorno
 
-Ver `.env.example` para la lista completa. Las principales:
+Ver `.env.example` para la lista minima. Variables principales:
 
-| Variable | Descripción |
+| Variable | Descripcion |
 |----------|-------------|
 | `JWT_SECRET_KEY` | Clave secreta para firmar tokens JWT |
-| `INTERNAL_API_KEY` | Clave para comunicación entre servicios |
+| `INTERNAL_API_KEY` | Clave para comunicacion entre servicios |
+| `PAYMENT_INTEGRITY_SECRET` | Secreto para checksum e integridad de requests de pago |

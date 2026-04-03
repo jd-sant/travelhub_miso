@@ -1,8 +1,16 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+from sqlalchemy.exc import IntegrityError
+
 from core.config import settings
-from core.security import build_payment_fingerprint, build_request_checksum, hash_token, verify_checksum
+from core.security import (
+    build_duplicate_guard_key,
+    build_payment_fingerprint,
+    build_request_checksum,
+    hash_token,
+    verify_checksum,
+)
 from domain.ports.payment_gateway import PaymentGateway
 from domain.ports.payment_repository import PaymentRepository
 from domain.schemas.payment import (
@@ -26,6 +34,7 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
         self.gateway = gateway
 
     def execute(self, payload: PaymentChargeRequest) -> PaymentPublicResponse:
+        now = datetime.now(timezone.utc)
         canonical_payload = self._canonical_payload(payload)
         if payload.request_checksum and not verify_checksum(
             payload=canonical_payload,
@@ -39,6 +48,10 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
             settings.payment_integrity_secret,
         )
 
+        existing_payment = self.repository.find_by_idempotency_key(payload.idempotency_key)
+        if existing_payment is not None:
+            raise DuplicatePaymentError(existing_payment.payment_id)
+
         token_hash = hash_token(payload.payment_method_token)
         request_fingerprint = build_payment_fingerprint(
             reservation_id=str(payload.reservation_id),
@@ -47,8 +60,12 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
             currency=payload.currency,
             token_hash=token_hash,
         )
+        duplicate_guard_key = build_duplicate_guard_key(
+            request_fingerprint=request_fingerprint,
+            bucket=int(now.timestamp() // settings.payment_duplicate_window_seconds),
+        )
 
-        since = datetime.now(timezone.utc) - timedelta(
+        since = now - timedelta(
             seconds=settings.payment_duplicate_window_seconds
         )
         duplicate_payment = self.repository.find_recent_duplicate(
@@ -59,7 +76,6 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
             raise DuplicatePaymentError(duplicate_payment.payment_id)
 
         gateway_result = self.gateway.charge(payload)
-        now = datetime.now(timezone.utc)
         payment = PaymentChargeResponse(
             payment_id=uuid4(),
             reservation_id=payload.reservation_id,
@@ -71,6 +87,7 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
             gateway_status=gateway_result.gateway_status,
             idempotency_key=payload.idempotency_key,
             request_fingerprint=request_fingerprint,
+            duplicate_guard_key=duplicate_guard_key,
             request_checksum=request_checksum,
             payment_method_token_hash=token_hash,
             failure_reason=gateway_result.failure_reason,
@@ -84,7 +101,18 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
             payment.receipt_id = uuid4()
             payment.receipt_number = self._build_receipt_number(now)
 
-        stored_payment = self.repository.save_payment_result(payment)
+        try:
+            stored_payment = self.repository.save_payment_result(payment)
+        except IntegrityError:
+            duplicate_payment = self.repository.find_by_idempotency_key(payload.idempotency_key)
+            if duplicate_payment is None:
+                duplicate_payment = self.repository.find_recent_duplicate(
+                    request_fingerprint=request_fingerprint,
+                    since=since,
+                )
+            if duplicate_payment is not None:
+                raise DuplicatePaymentError(duplicate_payment.payment_id)
+            raise
         self.repository.add_events(stored_payment.payment_id, self._build_events(stored_payment))
         return self._to_public_response(stored_payment)
 

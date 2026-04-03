@@ -7,6 +7,10 @@ from domain.schemas.payment import PaymentChargeResponse, PaymentEventResponse
 
 class PaymentRepository(ABC):
     @abstractmethod
+    def find_by_idempotency_key(self, idempotency_key: str) -> PaymentChargeResponse | None:
+        pass
+
+    @abstractmethod
     def find_recent_duplicate(
         self,
         *,

@@ -30,6 +30,15 @@ def build_request_checksum(payload: str, secret: str) -> str:
     return new(secret.encode("utf-8"), payload.encode("utf-8"), "sha256").hexdigest()
 
 
+def build_duplicate_guard_key(
+    *,
+    request_fingerprint: str,
+    bucket: int,
+) -> str:
+    raw_value = f"{request_fingerprint}|{bucket}"
+    return sha256(raw_value.encode("utf-8")).hexdigest()
+
+
 def verify_checksum(*, payload: str, expected_checksum: str, secret: str) -> bool:
     calculated_checksum = build_request_checksum(payload, secret)
     return compare_digest(calculated_checksum, expected_checksum)

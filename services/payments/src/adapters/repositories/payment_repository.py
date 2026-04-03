@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from adapters.models.payment import Payment
@@ -21,6 +22,7 @@ def _to_payment_response(model: Payment) -> PaymentChargeResponse:
         gateway_status=model.gateway_status,
         idempotency_key=model.idempotency_key,
         request_fingerprint=model.request_fingerprint,
+        duplicate_guard_key=model.duplicate_guard_key,
         request_checksum=model.request_checksum,
         payment_method_token_hash=model.payment_method_token_hash,
         receipt_id=model.receipt_id,
@@ -47,6 +49,12 @@ class SQLModelPaymentRepository(PaymentRepository):
     def __init__(self, session: Session):
         self.session = session
 
+    def find_by_idempotency_key(self, idempotency_key: str) -> PaymentChargeResponse | None:
+        model = self.session.exec(
+            select(Payment).where(Payment.idempotency_key == idempotency_key)
+        ).first()
+        return _to_payment_response(model) if model else None
+
     def find_recent_duplicate(
         self,
         *,
@@ -71,6 +79,7 @@ class SQLModelPaymentRepository(PaymentRepository):
             currency=payment.currency,
             payment_method_token_hash=payment.payment_method_token_hash,
             request_fingerprint=payment.request_fingerprint,
+            duplicate_guard_key=payment.duplicate_guard_key,
             request_checksum=payment.request_checksum,
             idempotency_key=payment.idempotency_key,
             gateway_charge_id=payment.gateway_charge_id,
@@ -84,8 +93,12 @@ class SQLModelPaymentRepository(PaymentRepository):
             updated_at=payment.updated_at,
         )
         self.session.add(model)
-        self.session.commit()
-        self.session.refresh(model)
+        try:
+            self.session.commit()
+            self.session.refresh(model)
+        except IntegrityError:
+            self.session.rollback()
+            raise
         return _to_payment_response(model)
 
     def get_by_id(self, payment_id: UUID) -> PaymentChargeResponse | None:

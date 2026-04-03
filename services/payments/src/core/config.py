@@ -55,7 +55,7 @@ class Settings:
 
     @property
     def enforce_tls_header(self) -> bool:
-        return os.getenv("ENFORCE_TLS_HEADER", "False").lower() == "true"
+        return os.getenv("ENFORCE_TLS_HEADER", "True").lower() == "true"
 
 
 @lru_cache

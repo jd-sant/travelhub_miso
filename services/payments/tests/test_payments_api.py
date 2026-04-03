@@ -15,6 +15,9 @@ from db.session import get_session
 from entrypoints.api.routers import payments as payments_router
 
 
+SECURE_HEADERS = {"x-forwarded-proto": "https"}
+
+
 def _build_app(test_engine):
     app = FastAPI()
     app.include_router(payments_router.router, prefix="/api/v1")
@@ -27,15 +30,20 @@ def _build_app(test_engine):
     return app
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_engine():
     db_file = Path(__file__).resolve().parent / "payments_test.db"
+    if db_file.exists():
+        db_file.unlink()
     engine = create_engine(
         f"sqlite:///{db_file}",
         connect_args={"check_same_thread": False},
     )
     SQLModel.metadata.create_all(engine)
-    return engine
+    yield engine
+    engine.dispose()
+    if db_file.exists():
+        db_file.unlink()
 
 
 @pytest.fixture
@@ -68,7 +76,7 @@ def _payload(token: str = "pm_tok_visa_ok") -> dict:
 def test_create_payment_success_generates_receipt_and_events(client, test_engine):
     payload = _payload()
 
-    response = client.post("/api/v1/payments/charges", json=payload)
+    response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
 
     assert response.status_code == 201
     body = response.json()
@@ -97,7 +105,7 @@ def test_create_payment_success_generates_receipt_and_events(client, test_engine
 def test_create_payment_failure_returns_clear_reason(client, test_engine):
     payload = _payload(token="pm_fail_insufficient_funds")
 
-    response = client.post("/api/v1/payments/charges", json=payload)
+    response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
 
     assert response.status_code == 201
     body = response.json()
@@ -114,8 +122,8 @@ def test_create_payment_failure_returns_clear_reason(client, test_engine):
 def test_create_payment_rejects_duplicate_within_two_seconds(client):
     payload = _payload()
 
-    first_response = client.post("/api/v1/payments/charges", json=payload)
-    second_response = client.post("/api/v1/payments/charges", json=payload)
+    first_response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
+    second_response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
@@ -124,11 +132,33 @@ def test_create_payment_rejects_duplicate_within_two_seconds(client):
     )
 
 
+def test_create_payment_rejects_reused_idempotency_key(client):
+    payload = _payload()
+
+    first_response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
+
+    retry_payload = _payload(token="pm_tok_mastercard_ok")
+    retry_payload["reservation_id"] = payload["reservation_id"]
+    retry_payload["traveler_id"] = payload["traveler_id"]
+    retry_payload["amount_in_cents"] = payload["amount_in_cents"]
+    retry_payload["currency"] = payload["currency"]
+    retry_payload["idempotency_key"] = payload["idempotency_key"]
+
+    second_response = client.post(
+        "/api/v1/payments/charges",
+        json=retry_payload,
+        headers=SECURE_HEADERS,
+    )
+
+    assert first_response.status_code == 201
+    assert second_response.status_code == 409
+
+
 def test_create_payment_rejects_invalid_checksum(client):
     payload = _payload()
     payload["request_checksum"] = "b" * 64
 
-    response = client.post("/api/v1/payments/charges", json=payload)
+    response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
 
     assert response.status_code == 400
     assert response.json() == {"detail": "Checksum de integridad invalido."}
@@ -151,13 +181,13 @@ def test_create_payment_accepts_valid_checksum(client):
         settings.payment_integrity_secret,
     )
 
-    response = client.post("/api/v1/payments/charges", json=payload)
+    response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
 
     assert response.status_code == 201
 
 
 def test_get_payment_by_id_returns_created_payment(client):
-    create_response = client.post("/api/v1/payments/charges", json=_payload())
+    create_response = client.post("/api/v1/payments/charges", json=_payload(), headers=SECURE_HEADERS)
     payment_id = create_response.json()["payment_id"]
 
     response = client.get(f"/api/v1/payments/{payment_id}")
@@ -167,7 +197,7 @@ def test_get_payment_by_id_returns_created_payment(client):
 
 
 def test_list_events_returns_created_events(client):
-    create_response = client.post("/api/v1/payments/charges", json=_payload())
+    create_response = client.post("/api/v1/payments/charges", json=_payload(), headers=SECURE_HEADERS)
     payment_id = create_response.json()["payment_id"]
 
     response = client.get(f"/api/v1/payments/{payment_id}/events")
