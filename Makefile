@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 .PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs payments-test payments-build payments-logs
+=======
+.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs security-test security-build security-logs
+>>>>>>> e943b10fb9f3ba9f653e0c569a1849f08352874f
 
 help:
 	@echo "=== TravelHub Monorepo ==="
@@ -15,10 +19,17 @@ help:
 	@echo "  make users-build    - Build users image"
 	@echo "  make users-logs     - Tail users logs"
 	@echo ""
+<<<<<<< HEAD
 	@echo "Payments service:"
 	@echo "  make payments-test  - Run payments tests"
 	@echo "  make payments-build - Build payments image"
 	@echo "  make payments-logs  - Tail payments logs"
+=======
+	@echo "Security service:"
+	@echo "  make security-test  - Run security tests"
+	@echo "  make security-build - Build security image"
+	@echo "  make security-logs  - Tail security logs"
+>>>>>>> e943b10fb9f3ba9f653e0c569a1849f08352874f
 
 # Global commands
 docker-up:
@@ -47,6 +58,7 @@ users-build:
 users-logs:
 	docker compose logs -f users
 
+<<<<<<< HEAD
 payments-test:
 	cd services/payments && PYTHONPATH=src pytest tests/ -v
 
@@ -55,3 +67,14 @@ payments-build:
 
 payments-logs:
 	docker compose logs -f payments
+=======
+# Security service
+security-test:
+	cd services/security && PYTHONPATH=src pytest tests/ -v
+
+security-build:
+	docker compose build security
+
+security-logs:
+	docker compose logs -f security
+>>>>>>> e943b10fb9f3ba9f653e0c569a1849f08352874f

@@ -29,15 +29,22 @@ services:
       RDS_PORT: "5432"
       DB_SCHEMA: users_schema
       DB_ECHO: "False"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
 
+<<<<<<< HEAD
   payments:
     build:
       context: ./services/payments
+=======
+  security:
+    build:
+      context: ./services/security
+>>>>>>> e943b10fb9f3ba9f653e0c569a1849f08352874f
     environment:
       PYTHONPATH: /app/src
       RDS_HOSTNAME: postgres
@@ -45,17 +52,30 @@ services:
       RDS_PASSWORD: travelhub_pass
       RDS_DB_NAME: travelhub
       RDS_PORT: "5432"
+<<<<<<< HEAD
       DB_SCHEMA: payments_schema
       DB_ECHO: "False"
       PAYMENT_PROVIDER: fake_stripe
       PAYMENT_DUPLICATE_WINDOW_SECONDS: "2"
       ENFORCE_TLS_HEADER: "False"
       PAYMENT_INTEGRITY_SECRET: "travelhub-payments-secret"
+=======
+      DB_SCHEMA: security_schema
+      DB_ECHO: "False"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      USERS_SERVICE_URL: http://users:8000
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+>>>>>>> e943b10fb9f3ba9f653e0c569a1849f08352874f
     ports:
       - "8001:8000"
     depends_on:
       postgres:
         condition: service_healthy
+<<<<<<< HEAD
+=======
+      users:
+        condition: service_started
+>>>>>>> e943b10fb9f3ba9f653e0c569a1849f08352874f
 
 volumes:
   postgres_data:

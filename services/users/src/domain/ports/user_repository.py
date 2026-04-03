@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from domain.schemas.user import UserCreateRequest, UserResponse
+from domain.schemas.user import UserCreateRequest, UserCredentialsData, UserResponse
 
 
 class UserRepository(ABC):
@@ -15,4 +15,10 @@ class UserRepository(ABC):
 
     @abstractmethod
     def list_all(self) -> list[UserResponse]:
+        pass
+
+    @abstractmethod
+    def get_by_email_with_password_and_roles(
+        self, email: str
+    ) -> Optional[UserCredentialsData]:
         pass
