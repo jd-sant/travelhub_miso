@@ -73,7 +73,15 @@ class Settings:
 
     @property
     def payment_integrity_secret(self) -> str:
-        return os.getenv("PAYMENT_INTEGRITY_SECRET", "travelhub-payments-secret")
+        value = os.getenv("PAYMENT_INTEGRITY_SECRET")
+        if value:
+            return value
+        env = os.getenv("ENV", os.getenv("APP_ENV", "development")).lower()
+        if env not in ("development", "dev", "test"):
+            raise RuntimeError(
+                "PAYMENT_INTEGRITY_SECRET debe estar configurado en entornos de produccion."
+            )
+        return "dev-payments-secret-change-me"
 
     @property
     def enforce_tls_header(self) -> bool:

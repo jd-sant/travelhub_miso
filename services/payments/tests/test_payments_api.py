@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import event, text
 from sqlmodel import SQLModel, Session, create_engine, select
 
 from adapters.models.payment_checkout_session import PaymentCheckoutSession
@@ -69,13 +70,7 @@ class FakeStripeCheckoutGateway:
 
 
 def _build_app(test_engine):
-    previous_skip_flag = os.environ.get("SKIP_DB_INIT_ON_STARTUP")
-    os.environ["SKIP_DB_INIT_ON_STARTUP"] = "true"
     app = create_application()
-    if previous_skip_flag is None:
-        os.environ.pop("SKIP_DB_INIT_ON_STARTUP", None)
-    else:
-        os.environ["SKIP_DB_INIT_ON_STARTUP"] = previous_skip_flag
 
     def override_get_session():
         with Session(test_engine) as session:
@@ -87,6 +82,30 @@ def _build_app(test_engine):
 
 @pytest.fixture(scope="function")
 def test_engine():
+    database_url = os.getenv("PAYMENTS_TEST_DATABASE_URL")
+    if database_url:
+        schema_name = f"payments_test_{uuid4().hex}"
+        engine = create_engine(database_url)
+
+        @event.listens_for(engine, "connect")
+        def _set_search_path(dbapi_connection, _connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute(f"SET search_path TO {schema_name}, public")
+            cursor.close()
+            dbapi_connection.commit()
+
+        with engine.connect() as conn:
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+            conn.commit()
+        SQLModel.metadata.create_all(engine)
+        yield engine
+        SQLModel.metadata.drop_all(engine)
+        with engine.connect() as conn:
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE"))
+            conn.commit()
+        engine.dispose()
+        return
+
     db_file = Path(__file__).resolve().parent / "payments_test.db"
     if db_file.exists():
         db_file.unlink()
@@ -103,7 +122,12 @@ def test_engine():
 
 @pytest.fixture
 def client(test_engine):
+    previous_skip_flag = os.environ.get("SKIP_DB_INIT_ON_STARTUP")
+    os.environ["SKIP_DB_INIT_ON_STARTUP"] = "true"
+
     with Session(test_engine) as session:
+        for checkout_session in session.exec(select(PaymentCheckoutSession)).all():
+            session.delete(checkout_session)
         for event in session.exec(select(PaymentEvent)).all():
             session.delete(event)
         for payment in session.exec(select(Payment)).all():
@@ -115,6 +139,10 @@ def client(test_engine):
         yield test_client
 
     app.dependency_overrides.clear()
+    if previous_skip_flag is None:
+        os.environ.pop("SKIP_DB_INIT_ON_STARTUP", None)
+    else:
+        os.environ["SKIP_DB_INIT_ON_STARTUP"] = previous_skip_flag
 
 
 def _payload(token: str = "pm_tok_visa_ok") -> dict:

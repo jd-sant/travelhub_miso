@@ -41,7 +41,7 @@ Microservicio de pagos de TravelHub para el MVP de procesamiento seguro.
 
 ```bash
 make docker-up
-# El servicio queda en http://localhost:8002
+# El servicio queda en http://localhost:8003
 ```
 
 ### Local
@@ -49,7 +49,7 @@ make docker-up
 ```bash
 cd services/payments
 pip install -r requirements.txt
-PYTHONPATH=src uvicorn entrypoints.api.main:app --reload --port 8002
+PYTHONPATH=src uvicorn entrypoints.api.main:app --reload --port 8003
 ```
 
 ### Tests

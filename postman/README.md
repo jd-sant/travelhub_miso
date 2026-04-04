@@ -12,7 +12,7 @@ Archivos listos para probar el MVP de `payments` desde Postman y validar los cri
 
 1. Importa la coleccion y el environment.
 2. Selecciona el environment `TravelHub Local`.
-3. Levanta el backend en `http://localhost:8002`.
+3. Levanta el backend en `http://localhost:8003`.
 
 ## Coleccion principal MVP
 
