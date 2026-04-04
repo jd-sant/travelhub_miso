@@ -1,42 +1,5 @@
-import pytest
 from datetime import UTC, datetime, timedelta
-import os
 from uuid import uuid4
-from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
-
-# Forzar SQLite en pruebas antes de importar el módulo de la app.
-os.environ["DATABASE_URL"] = "sqlite://"
-
-from entrypoints.api.main import app
-from db.session import get_session
-
-
-@pytest.fixture
-def test_session():
-    """Create an in-memory SQLite database for testing."""
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-@pytest.fixture
-def client(test_session):
-    """Create a test client with test database dependency."""
-
-    def get_session_override():
-        return test_session
-
-    app.dependency_overrides[get_session] = get_session_override
-    client = TestClient(app)
-    yield client
-    app.dependency_overrides.clear()
 
 
 class TestReservationEndpoints:
