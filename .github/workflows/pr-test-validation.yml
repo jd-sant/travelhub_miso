@@ -12,6 +12,10 @@ on:
       - reopened
       - ready_for_review
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   validate-pr-description:
     runs-on: ubuntu-latest

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -68,7 +69,13 @@ class FakeStripeCheckoutGateway:
 
 
 def _build_app(test_engine):
+    previous_skip_flag = os.environ.get("SKIP_DB_INIT_ON_STARTUP")
+    os.environ["SKIP_DB_INIT_ON_STARTUP"] = "true"
     app = create_application()
+    if previous_skip_flag is None:
+        os.environ.pop("SKIP_DB_INIT_ON_STARTUP", None)
+    else:
+        os.environ["SKIP_DB_INIT_ON_STARTUP"] = previous_skip_flag
 
     def override_get_session():
         with Session(test_engine) as session:
@@ -206,9 +213,11 @@ def test_create_payment_rejects_raw_card_fields(client):
 
 def test_create_payment_rejects_duplicate_within_two_seconds(client):
     payload = _payload()
+    second_payload = payload.copy()
+    second_payload["idempotency_key"] = "booking-123-attempt-2"
 
     first_response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
-    second_response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
+    second_response = client.post("/api/v1/payments/charges", json=second_payload, headers=SECURE_HEADERS)
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
@@ -237,6 +246,7 @@ def test_create_payment_rejects_reused_idempotency_key(client):
 
     assert first_response.status_code == 201
     assert second_response.status_code == 409
+    assert second_response.json()["detail"]["message"] == "Se reutilizo una idempotency_key ya registrada."
 
 
 def test_create_payment_rejects_invalid_checksum(client):

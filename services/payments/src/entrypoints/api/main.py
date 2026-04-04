@@ -10,7 +10,8 @@ from entrypoints.api.routers.payments import router as payments_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    create_db_and_tables()
+    if not settings.skip_db_init_on_startup:
+        create_db_and_tables()
     yield
 
 

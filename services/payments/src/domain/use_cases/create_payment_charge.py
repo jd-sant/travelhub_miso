@@ -50,7 +50,10 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
 
         existing_payment = self.repository.find_by_idempotency_key(payload.idempotency_key)
         if existing_payment is not None:
-            raise DuplicatePaymentError(existing_payment.payment_id)
+            raise DuplicatePaymentError(
+                existing_payment.payment_id,
+                reason="idempotency_key_reused",
+            )
 
         token_hash = hash_token(payload.payment_method_token)
         request_fingerprint = build_payment_fingerprint(
@@ -73,7 +76,10 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
             since=since,
         )
         if duplicate_payment is not None:
-            raise DuplicatePaymentError(duplicate_payment.payment_id)
+            raise DuplicatePaymentError(
+                duplicate_payment.payment_id,
+                reason="duplicate_window",
+            )
 
         gateway_result = self.gateway.charge(payload)
         payment = PaymentChargeResponse(
@@ -111,7 +117,15 @@ class CreatePaymentChargeUseCase(BaseUseCase[PaymentChargeRequest, PaymentPublic
                     since=since,
                 )
             if duplicate_payment is not None:
-                raise DuplicatePaymentError(duplicate_payment.payment_id)
+                reason = (
+                    "idempotency_key_reused"
+                    if duplicate_payment.idempotency_key == payload.idempotency_key
+                    else "duplicate_window"
+                )
+                raise DuplicatePaymentError(
+                    duplicate_payment.payment_id,
+                    reason=reason,
+                )
             raise
         self.repository.add_events(stored_payment.payment_id, self._build_events(stored_payment))
         return self._to_public_response(stored_payment)

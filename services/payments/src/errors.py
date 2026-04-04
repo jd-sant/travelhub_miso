@@ -6,8 +6,9 @@ class PaymentNotFoundError(Exception):
 
 
 class DuplicatePaymentError(Exception):
-    def __init__(self, duplicate_payment_id: UUID):
+    def __init__(self, duplicate_payment_id: UUID, reason: str = "duplicate_window"):
         self.duplicate_payment_id = duplicate_payment_id
+        self.reason = reason
         super().__init__(f"Duplicate payment detected: {duplicate_payment_id}")
 
 

@@ -80,6 +80,10 @@ class Settings:
         return os.getenv("ENFORCE_TLS_HEADER", "True").lower() == "true"
 
     @property
+    def skip_db_init_on_startup(self) -> bool:
+        return os.getenv("SKIP_DB_INIT_ON_STARTUP", "False").lower() == "true"
+
+    @property
     def allowed_cors_origins(self) -> list[str]:
         raw = os.getenv(
             "ALLOWED_CORS_ORIGINS",

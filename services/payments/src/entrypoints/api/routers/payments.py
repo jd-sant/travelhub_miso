@@ -128,10 +128,15 @@ def create_charge(
         _assert_secure_transport(x_forwarded_proto)
         return use_case.execute(payload)
     except DuplicatePaymentError as exc:
+        message = (
+            "Se reutilizo una idempotency_key ya registrada."
+            if exc.reason == "idempotency_key_reused"
+            else "Se detecto una transaccion duplicada en menos de 2 segundos."
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
-                "message": "Se detecto una transaccion duplicada en menos de 2 segundos.",
+                "message": message,
                 "duplicate_payment_id": str(exc.duplicate_payment_id),
             },
         )
