@@ -17,3 +17,15 @@ class InvalidChecksumError(Exception):
 
 class InsecureTransportError(Exception):
     pass
+
+
+class PaymentCheckoutSessionNotFoundError(Exception):
+    pass
+
+
+class StripeConfigurationError(Exception):
+    pass
+
+
+class StripeWebhookVerificationError(Exception):
+    pass

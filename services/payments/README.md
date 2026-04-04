@@ -14,16 +14,23 @@ Microservicio de pagos de TravelHub para el MVP de procesamiento seguro.
 
 - El backend no recibe numero de tarjeta, CVV ni fecha de expiracion
 - El contrato HTTP acepta unicamente `payment_method_token`
+- Requests que intenten enviar campos de tarjeta fuera del contrato se rechazan
 - Se persiste solo el hash del token, nunca el token en claro
 - Se genera recibo cuando el pago queda `confirmed`
 - Se devuelve `failure_reason` cuando el cargo falla
 - Se rechazan duplicados por `idempotency_key` y por ventana corta de 2 segundos
+- El servicio puede operar en `fake_stripe` o en `stripe_test` con `ConfirmationToken`
 
 ## Endpoints
 
 | Metodo | Ruta | Descripcion |
 |--------|------|-------------|
 | GET | `/health` | Health check |
+| GET | `/api/v1/payments/config` | Exponer configuracion publica de pagos |
+| POST | `/api/v1/payments/create-intent` | Crear sesion de checkout para Stripe test |
+| POST | `/api/v1/payments/finalize` | Crear y confirmar PaymentIntent con ConfirmationToken |
+| GET | `/api/v1/payments/checkout/{payment_transaction_id}` | Consultar estado del checkout Stripe |
+| POST | `/api/v1/payments/webhook` | Consumir webhooks firmados de Stripe |
 | POST | `/api/v1/payments/charges` | Crear cargo con token de pago |
 | GET | `/api/v1/payments/{payment_id}` | Consultar un pago |
 | GET | `/api/v1/payments/{payment_id}/events` | Listar eventos del pago |
@@ -67,9 +74,14 @@ PYTHONPATH=services/payments/src pytest services/payments/tests/ -v
 | `PAYMENT_DUPLICATE_WINDOW_SECONDS` | `2` | Ventana anti-duplicados |
 | `PAYMENT_INTEGRITY_SECRET` | - | Secreto HMAC para checksum |
 | `ENFORCE_TLS_HEADER` | `True` | Exige `X-Forwarded-Proto: https` |
+| `STRIPE_SECRET_KEY` | - | Secret key de Stripe en modo test |
+| `STRIPE_PUBLISHABLE_KEY` | - | Publishable key de Stripe en modo test |
+| `STRIPE_WEBHOOK_SECRET` | - | Secreto para verificar firma del webhook |
+| `ALLOWED_CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` | Origenes permitidos para el frontend |
 
 ## Notas de arquitectura
 
 - Este repo backend deja listo el contrato token-only para integrarse luego con Stripe Elements desde el frontend.
 - En el MVP actual el gateway por defecto es simulado para permitir pruebas automatizadas sin depender de servicios externos.
+- Si `PAYMENT_PROVIDER=stripe_test` y las llaves estan configuradas, el servicio expone el flujo `create-intent` + `finalize` + `webhook` para Stripe test mode.
 - Los eventos `reservation.confirmation.requested` e `inventory.update.requested` dejan trazabilidad para la futura integracion asincrona.

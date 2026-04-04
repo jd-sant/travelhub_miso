@@ -1,6 +1,8 @@
 import os
 from functools import lru_cache
 
+from pydantic import SecretStr
+
 
 class Settings:
     @property
@@ -46,6 +48,26 @@ class Settings:
         return os.getenv("PAYMENT_PROVIDER", "fake_stripe")
 
     @property
+    def stripe_secret_key(self) -> SecretStr:
+        return SecretStr(os.getenv("STRIPE_SECRET_KEY", ""))
+
+    @property
+    def stripe_publishable_key(self) -> str:
+        return os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+
+    @property
+    def stripe_webhook_secret(self) -> SecretStr:
+        return SecretStr(os.getenv("STRIPE_WEBHOOK_SECRET", ""))
+
+    @property
+    def stripe_enabled(self) -> bool:
+        return (
+            self.payment_provider == "stripe_test"
+            and self.stripe_secret_key.get_secret_value().startswith("sk_test_")
+            and self.stripe_publishable_key.startswith("pk_test_")
+        )
+
+    @property
     def payment_duplicate_window_seconds(self) -> int:
         return int(os.getenv("PAYMENT_DUPLICATE_WINDOW_SECONDS", "2"))
 
@@ -56,6 +78,14 @@ class Settings:
     @property
     def enforce_tls_header(self) -> bool:
         return os.getenv("ENFORCE_TLS_HEADER", "True").lower() == "true"
+
+    @property
+    def allowed_cors_origins(self) -> list[str]:
+        raw = os.getenv(
+            "ALLOWED_CORS_ORIGINS",
+            "http://localhost:3000,http://127.0.0.1:3000",
+        )
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 @lru_cache

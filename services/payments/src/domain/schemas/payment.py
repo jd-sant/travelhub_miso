@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PaymentStatus(str, Enum):
@@ -11,6 +11,8 @@ class PaymentStatus(str, Enum):
 
 
 class PaymentChargeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     reservation_id: UUID
     traveler_id: UUID
     payment_method_token: str = Field(min_length=4, max_length=255)

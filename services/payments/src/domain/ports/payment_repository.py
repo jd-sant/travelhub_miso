@@ -28,6 +28,10 @@ class PaymentRepository(ABC):
         pass
 
     @abstractmethod
+    def find_by_gateway_charge_id(self, gateway_charge_id: str) -> PaymentChargeResponse | None:
+        pass
+
+    @abstractmethod
     def add_events(self, payment_id: UUID, events: list[PaymentEventResponse]) -> None:
         pass
 

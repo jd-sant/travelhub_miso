@@ -105,6 +105,12 @@ class SQLModelPaymentRepository(PaymentRepository):
         model = self.session.get(Payment, payment_id)
         return _to_payment_response(model) if model else None
 
+    def find_by_gateway_charge_id(self, gateway_charge_id: str) -> PaymentChargeResponse | None:
+        model = self.session.exec(
+            select(Payment).where(Payment.gateway_charge_id == gateway_charge_id)
+        ).first()
+        return _to_payment_response(model) if model else None
+
     def add_events(self, payment_id: UUID, events: list[PaymentEventResponse]) -> None:
         for event in events:
             model = PaymentEvent(

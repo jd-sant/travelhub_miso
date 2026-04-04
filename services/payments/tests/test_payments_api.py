@@ -7,20 +7,63 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import SQLModel, Session, create_engine, select
 
+from adapters.models.payment_checkout_session import PaymentCheckoutSession
 from adapters.models.payment import Payment
 from adapters.models.payment_event import PaymentEvent
+from assembly import get_stripe_checkout_gateway
 from core.config import settings
 from core.security import build_request_checksum, hash_token
 from db.session import get_session
+from entrypoints.api.main import create_application
 from entrypoints.api.routers import payments as payments_router
 
 
 SECURE_HEADERS = {"x-forwarded-proto": "https"}
 
 
+class FakeStripeCheckoutGateway:
+    def __init__(self, finalize_status: str = "succeeded"):
+        self.finalize_status = finalize_status
+        self.last_payment_intent_id = "pi_test_123"
+
+    def create_and_confirm_payment(self, **kwargs):
+        if self.finalize_status == "requires_action":
+            return {
+                "id": self.last_payment_intent_id,
+                "status": "requires_action",
+                "client_secret": "pi_test_123_secret_abc",
+            }
+        if self.finalize_status == "failed":
+            return {
+                "id": self.last_payment_intent_id,
+                "status": "requires_payment_method",
+                "client_secret": "pi_test_123_secret_abc",
+                "last_payment_error": {
+                    "code": "card_declined",
+                    "message": "Your card was declined.",
+                },
+            }
+        return {
+            "id": self.last_payment_intent_id,
+            "status": "succeeded",
+            "client_secret": "pi_test_123_secret_abc",
+        }
+
+    def construct_event(self, *, payload: bytes, signature: str):
+        if signature != "test-signature":
+            raise ValueError("invalid signature")
+        return {
+            "type": "payment_intent.succeeded",
+            "data": {
+                "object": {
+                    "id": self.last_payment_intent_id,
+                }
+            },
+        }
+
+
 def _build_app(test_engine):
-    app = FastAPI()
-    app.include_router(payments_router.router, prefix="/api/v1")
+    app = create_application()
 
     def override_get_session():
         with Session(test_engine) as session:
@@ -73,6 +116,18 @@ def _payload(token: str = "pm_tok_visa_ok") -> dict:
     }
 
 
+def _checkout_payload() -> dict:
+    return {
+        "reservation_id": str(uuid4()),
+        "traveler_id": str(uuid4()),
+        "amount_in_cents": 287650,
+        "currency": "cop",
+        "property_name": "Renaissance Estate",
+        "check_in_date": "2026-10-12",
+        "check_out_date": "2026-10-17",
+    }
+
+
 def test_create_payment_success_generates_receipt_and_events(client, test_engine):
     payload = _payload()
 
@@ -117,6 +172,31 @@ def test_create_payment_failure_returns_clear_reason(client, test_engine):
         stored_events = session.exec(select(PaymentEvent)).all()
 
     assert [event.event_type for event in stored_events] == ["payment.failed"]
+
+
+def test_create_payment_card_declined_returns_clear_reason(client):
+    payload = _payload(token="pm_fail_card_declined")
+
+    response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "failed"
+    assert body["failure_reason"] == "card_declined"
+
+
+def test_create_payment_rejects_raw_card_fields(client):
+    payload = _payload()
+    payload["card_number"] = "4242424242424242"
+    payload["cvv"] = "123"
+    payload["expiration_date"] = "12/30"
+
+    response = client.post("/api/v1/payments/charges", json=payload, headers=SECURE_HEADERS)
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    rejected_fields = {error["loc"][-1] for error in detail}
+    assert {"card_number", "cvv", "expiration_date"} <= rejected_fields
 
 
 def test_create_payment_rejects_duplicate_within_two_seconds(client):
@@ -230,3 +310,131 @@ def test_tls_header_can_be_enforced(client, monkeypatch):
         "settings",
         settings,
     )
+
+
+def test_cors_allows_frontend_origin(client):
+    response = client.options(
+        "/api/v1/payments/charges",
+        headers={
+            "origin": "http://localhost:3000",
+            "access-control-request-method": "POST",
+            "access-control-request-headers": "content-type,x-forwarded-proto",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+def test_get_payments_config_returns_current_provider(client):
+    response = client.get("/api/v1/payments/config")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] in {"fake_stripe", "stripe_test"}
+    assert "stripe_enabled" in body
+    assert "publishable_key" in body
+
+
+def test_create_checkout_session_returns_transaction_metadata(client, monkeypatch):
+    monkeypatch.setenv("PAYMENT_PROVIDER", "stripe_test")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_example")
+    monkeypatch.setenv("STRIPE_PUBLISHABLE_KEY", "pk_test_example")
+
+    response = client.post(
+        "/api/v1/payments/create-intent",
+        json=_checkout_payload(),
+        headers=SECURE_HEADERS,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["currency"] == "COP"
+    assert body["stripe_enabled"] is True
+    assert body["publishable_key"] == "pk_test_example"
+
+
+def test_finalize_stripe_payment_materializes_confirmed_payment(client, test_engine, monkeypatch):
+    monkeypatch.setenv("PAYMENT_PROVIDER", "stripe_test")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_example")
+    monkeypatch.setenv("STRIPE_PUBLISHABLE_KEY", "pk_test_example")
+    gateway = FakeStripeCheckoutGateway(finalize_status="succeeded")
+    client.app.dependency_overrides[get_stripe_checkout_gateway] = lambda: gateway
+
+    create_response = client.post(
+        "/api/v1/payments/create-intent",
+        json=_checkout_payload(),
+        headers=SECURE_HEADERS,
+    )
+    transaction_id = create_response.json()["payment_transaction_id"]
+
+    finalize_response = client.post(
+        "/api/v1/payments/finalize",
+        json={
+            "payment_transaction_id": transaction_id,
+            "confirmation_token_id": "ctoken_test_123",
+        },
+        headers=SECURE_HEADERS,
+    )
+
+    assert finalize_response.status_code == 200
+    body = finalize_response.json()
+    assert body["status"] == "confirmed"
+    assert body["payment_id"] is not None
+    assert body["payment_intent_id"] == "pi_test_123"
+
+    with Session(test_engine) as session:
+        stored_session = session.exec(select(PaymentCheckoutSession)).first()
+        stored_payment = session.exec(select(Payment)).first()
+
+    assert stored_session is not None
+    assert stored_session.status == "confirmed"
+    assert stored_payment is not None
+    assert stored_payment.gateway_charge_id == "pi_test_123"
+    assert stored_payment.receipt_number is not None
+
+
+def test_webhook_can_complete_requires_action_checkout(client, test_engine, monkeypatch):
+    monkeypatch.setenv("PAYMENT_PROVIDER", "stripe_test")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_example")
+    monkeypatch.setenv("STRIPE_PUBLISHABLE_KEY", "pk_test_example")
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_test")
+    gateway = FakeStripeCheckoutGateway(finalize_status="requires_action")
+    client.app.dependency_overrides[get_stripe_checkout_gateway] = lambda: gateway
+
+    create_response = client.post(
+        "/api/v1/payments/create-intent",
+        json=_checkout_payload(),
+        headers=SECURE_HEADERS,
+    )
+    transaction_id = create_response.json()["payment_transaction_id"]
+
+    finalize_response = client.post(
+        "/api/v1/payments/finalize",
+        json={
+            "payment_transaction_id": transaction_id,
+            "confirmation_token_id": "ctoken_test_requires_action",
+        },
+        headers=SECURE_HEADERS,
+    )
+
+    assert finalize_response.status_code == 200
+    assert finalize_response.json()["status"] == "requires_action"
+
+    webhook_response = client.post(
+        "/api/v1/payments/webhook",
+        content=b'{"type":"payment_intent.succeeded"}',
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert webhook_response.status_code == 200
+
+    status_response = client.get(f"/api/v1/payments/checkout/{transaction_id}")
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "confirmed"
+
+    with Session(test_engine) as session:
+        stored_payment = session.exec(select(Payment)).first()
+
+    assert stored_payment is not None
+    assert stored_payment.status == "confirmed"
