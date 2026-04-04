@@ -1,0 +1,21 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Setting up Python 3.11...
+      - python3.11 --version
+      - echo Installing dependencies...
+      - pip install -r services/payments/requirements.txt
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Running tests...
+      - PYTHONPATH=services/payments/src pytest services/payments/tests/ -v --tb=short
+      - echo Building Docker image...
+      - docker build -t travelhub-payments services/payments/
+
+artifacts:
+  files:
+    - services/payments/buildspec.yml
