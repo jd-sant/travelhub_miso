@@ -64,5 +64,26 @@ services:
       users:
         condition: service_started
 
+  reservations:
+    build:
+      context: ./services/reservations
+    environment:
+      PYTHONPATH: /app/src
+      ENV: production
+      APP_ENV: production
+      RDS_HOSTNAME: postgres
+      RDS_USERNAME: travelhub_user
+      RDS_PASSWORD: travelhub_pass
+      RDS_DB_NAME: travelhub
+      RDS_PORT: "5432"
+      DB_SCHEMA: reservations_schema
+      DB_ECHO: "False"
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
