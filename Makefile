@@ -1,4 +1,4 @@
-.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs security-test security-build security-logs payments-test payments-build payments-logs
+.PHONY: help docker-up docker-down docker-build docker-logs clean users-test users-build users-logs security-test security-build security-logs reservations-test reservations-build reservations-logs payments-test payments-build payments-logs
 
 help:
 	@echo "=== TravelHub Monorepo ==="
@@ -19,6 +19,11 @@ help:
 	@echo "  make security-test  - Run security tests"
 	@echo "  make security-build - Build security image"
 	@echo "  make security-logs  - Tail security logs"
+	@echo ""
+	@echo "Reservations service:"
+	@echo "  make reservations-test  - Run reservations tests"
+	@echo "  make reservations-build - Build reservations image"
+	@echo "  make reservations-logs  - Tail reservations logs"
 	@echo ""
 	@echo "Payments service:"
 	@echo "  make payments-test  - Run payments tests"
@@ -61,6 +66,16 @@ security-build:
 
 security-logs:
 	docker compose logs -f security
+
+# Reservations service
+reservations-test:
+	cd services/reservations && PYTHONPATH=src pytest tests/ -v
+
+reservations-build:
+	docker compose build reservations
+
+reservations-logs:
+	docker compose logs -f reservations
 
 # Payments service
 payments-test:
