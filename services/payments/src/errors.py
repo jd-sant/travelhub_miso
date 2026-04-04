@@ -29,3 +29,14 @@ class StripeConfigurationError(Exception):
 
 class StripeWebhookVerificationError(Exception):
     pass
+
+
+class StripePaymentFailureError(Exception):
+    def __init__(self, code: str | None = None, message: str | None = None):
+        self.code = code
+        self.message = message
+        super().__init__(message or code or "Stripe payment failed")
+
+
+class StripeIdempotencyConflictError(Exception):
+    pass

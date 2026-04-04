@@ -18,7 +18,12 @@ from domain.schemas.checkout import (
 )
 from domain.schemas.payment import PaymentChargeResponse, PaymentEventResponse, PaymentStatus
 from domain.use_cases.base import BaseUseCase
-from errors import PaymentCheckoutSessionNotFoundError, StripeConfigurationError
+from errors import (
+    PaymentCheckoutSessionNotFoundError,
+    StripeConfigurationError,
+    StripeIdempotencyConflictError,
+    StripePaymentFailureError,
+)
 
 
 class FinalizeStripePaymentUseCase(BaseUseCase[PaymentFinalizeRequest, PaymentFinalizeResponse]):
@@ -49,17 +54,55 @@ class FinalizeStripePaymentUseCase(BaseUseCase[PaymentFinalizeRequest, PaymentFi
                 error=session.error,
             )
 
-        intent = self.gateway.create_and_confirm_payment(
-            amount_in_cents=session.amount_in_cents,
-            currency=session.currency,
-            confirmation_token_id=payload.confirmation_token_id,
-            idempotency_key=session.idempotency_key,
-            metadata={
-                "payment_transaction_id": str(session.payment_transaction_id),
-                "reservation_id": str(session.reservation_id),
-                "traveler_id": str(session.traveler_id),
-            },
-        )
+        try:
+            intent = self.gateway.create_and_confirm_payment(
+                amount_in_cents=session.amount_in_cents,
+                currency=session.currency,
+                confirmation_token_id=payload.confirmation_token_id,
+                idempotency_key=session.idempotency_key,
+                metadata={
+                    "payment_transaction_id": str(session.payment_transaction_id),
+                    "reservation_id": str(session.reservation_id),
+                    "traveler_id": str(session.traveler_id),
+                },
+            )
+        except StripePaymentFailureError as exc:
+            failure_reason = exc.code or "card_declined"
+            session.confirmation_token_id = payload.confirmation_token_id
+            session.updated_at = datetime.now(timezone.utc)
+            payment = self._materialize_payment(
+                session=session,
+                gateway_charge_id=session.payment_intent_id or "",
+                gateway_status="failed",
+                token_reference=payload.confirmation_token_id,
+                status=PaymentStatus.failed,
+                failure_reason=failure_reason,
+            )
+            stored_payment = self.payment_repository.save_payment_result(payment)
+            self.payment_repository.add_events(
+                stored_payment.payment_id,
+                self._build_events(stored_payment),
+            )
+            session.payment_id = stored_payment.payment_id
+            session.status = stored_payment.status.value
+            session.error = exc.message or failure_reason
+            stored_session = self.checkout_repository.update_session(session)
+            return PaymentFinalizeResponse(
+                status=stored_session.status,
+                payment_id=stored_session.payment_id,
+                payment_intent_id=stored_session.payment_intent_id,
+                client_secret=stored_session.client_secret,
+                error=stored_session.error,
+            )
+        except StripeIdempotencyConflictError:
+            existing_session = self.checkout_repository.update_session(session)
+            return PaymentFinalizeResponse(
+                status=existing_session.status,
+                payment_id=existing_session.payment_id,
+                payment_intent_id=existing_session.payment_intent_id,
+                client_secret=existing_session.client_secret,
+                error=existing_session.error or "Duplicate Stripe confirmation attempt.",
+            )
 
         stripe_status = str(intent.get("status", "processing"))
         session.confirmation_token_id = payload.confirmation_token_id
